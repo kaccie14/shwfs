@@ -1,7 +1,6 @@
 classdef Roorda < handle
     %MODEL roordalab Shack-Hartmann wavefront sensor
-    %   Comform to ANSI Z80.28 Method of Reporting Optical Aberrations of
-    %   Eyes.
+    %   
     
     properties (Constant, Access = private)
         lensletFocalLength = 7.6e-3 % meters
@@ -35,7 +34,7 @@ classdef Roorda < handle
             %   as that of the background image
             outputArg = 5;
             
-            obj.meas = uint8(rawMeasurement - obj.bkgd);
+            obj.meas = rawMeasurement - obj.bkgd;
             
             meas_scaled = imresize(obj.meas, obj.scaleForProcessing,...
                 "AntiAliasing", true);
