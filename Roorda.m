@@ -39,6 +39,10 @@ classdef Roorda < handle
             
             meas_scaled = imresize(obj.meas, obj.scaleForProcessing,...
                 "AntiAliasing", true);
+            
+            
+            
+            
             meas_bin = imbinarize(meas_scaled, "adaptive",...
                 "Sensitivity", obj.thresholdSensitivity);
             [y, x] = find(meas_bin);
