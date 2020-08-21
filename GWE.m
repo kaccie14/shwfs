@@ -1,6 +1,10 @@
 classdef GWE
     %GWE image processing attributed to Gonzalez, Woods and Eddings
     %   Custom thresholding and morphology
+    %   This helper class modularizes self-contained calculations into
+    %   private methods called by user-facing public methods
+    
+    %% Private Methods
     
     methods(Static, Access = private)
         
@@ -37,6 +41,7 @@ classdef GWE
         end  
     end
     
+    %% Public methods
     
     methods(Static, Access = public)
         
@@ -59,9 +64,8 @@ classdef GWE
                 done = abs(T - Tnext) < 0.5;
                 T = Tnext;
             end
+            T = uint8(T);
         end%graythresh
-        
-        
         
     end
     
