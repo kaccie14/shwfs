@@ -1,4 +1,4 @@
-classdef OpticalSystem < handle
+classdef LensSystem < handle
     %OPTICALSYSTEM models a paraxial optical system
     %   After constructing an instance of the class, individual surfaces
     %   are added by the user to model an optical system. By default, the
@@ -16,9 +16,14 @@ classdef OpticalSystem < handle
             'double'};
     end
     
+%     properties(Constant, Access = private)
+%     end
+    
     properties (SetAccess = private, GetAccess = public)
         lensData % table
         lensDataReverse % reversed optical system has no image plane
+        apertureSize % aperture-stop diameter (mm)
+        aperturePosition % aperture position to right of first surface (mm)
     end
     
     methods (Access = private)
@@ -34,11 +39,12 @@ classdef OpticalSystem < handle
             obj.lensDataReverse.Index = cell2mat(c(2:end,4));
             obj.lensDataReverse.SemiDiameter = cell2mat(c(1:end-1,5));
             obj.lensDataReverse.Conic = cell2mat(c(1:end-1,6));
-        end 
+        end % this function might be removed
     end
     
     methods (Access = public)
-        function obj = OpticalSystem()
+        
+        function obj = LensSystem()
             %OPTICALSYSTEM Construct an instance of this class
             %   Default object space is air with 0 thickness
             
@@ -71,6 +77,10 @@ classdef OpticalSystem < handle
             % Update reverse lens data table
             obj.reverse();
         end
+        
+        function addAperture(obj, position, semiDiameter)
+            
+        end  
         
         function updateLastSurface(obj, name, radius, thickness, index,...
                 semiDiameter, conic)
