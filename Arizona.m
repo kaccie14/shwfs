@@ -3,8 +3,10 @@ classdef Arizona < handle
     %   Paraxial eye models can estimate cardinal points, pupils,
     %   magnification, etc. (first-order effects). Arizona eye model is
     %   designed to also match clinical levels of aberration and
-    %   incorporate slight variations due to accommodation. The Arizona
-    %   model doesn't include semi-diameters of each surface
+    %   incorporate slight variations due to accommodation.
+    %
+    %   Arizona model doesn't include semi-diameters of each surface
+    %   Origin is defined at corneal apex
     
     properties (Constant, Access = private)
         sd = [6 6 5 5 0.5] % semi-diameters (mm)
@@ -70,38 +72,52 @@ classdef Arizona < handle
             plot(z_axis.x, z_axis.y, 'k', 'LineWidth', 3)
             hold on
             
-            % Sample full circle with 360 points
 %             sd = obj.data.SemiDiameter(2);
 %             xc = 0 + R; % yc = 0 always
-
 %             theta = ceil(atand(6/R));
 %             t = (-theta:theta)';
 %             x = xc - R * cosd(t);
 %             y = R * sind(t);        
-%             hold on, plot(x, y, 'b')
-            
-
 
             % Anterior cornea
             R2 = obj.data.Radius(2);
             K2 = obj.data.Conic(2);           
             acd = obj.aqueousThickness + obj.cornealThickness;
-            z2 = (0:0.1:acd)'; % extemds out to whatever corresponds to ACD
+            z2 = (0:0.1:acd)'; % extends out to whatever corresponds to ACD
             y2 = sqrt(R2^2 - (z2*(K2 + 1) - R2).^2) / sqrt(K2 + 1);
-            plot([z2 z2], y2, 'k:')
+            plot([z2 z2], [y2 -y2], 'k')
             
             % Posterior cornea
+            t2 = obj.data.Thickness(2);
             R3 = obj.data.Radius(3);
             K3 = obj.data.Conic(3);   
-            y3 = [-max(y2):0.1:max(y2)]';
-            z3 = ((1/R2) * y.^2) ./ (1 + sqrt(1 - (1 + K2) * (y.^2) / R2^2));
+            y3 = (-max(y2):0.1:max(y2))';
+            z3 = t2 + sag_nontoric(y3, R3, K3);
+            plot(z3, y3, 'k')
             
-
-            y = (-6:0.5:6)';
-            x = 
+            % Anterior lens
+            t3 = obj.data.Thickness(3);
+            R4 = obj.data.Radius(4);
+            K4 = obj.data.Conic(4);
+            y4 = (-obj.data.SemiDiameter(4):0.1:obj.data.SemiDiameter(4))';
+            z4 = t2 + t3 + sag_nontoric(y4, R4, K4);  
+            plot(z4, y4, 'k')
             
+            % Posterior lens
+            t4 = obj.data.Thickness(4);
+            R5 = obj.data.Radius(5);
+            K5 = obj.data.Conic(5);
+            z5 = t2 + t3 + t4 + sag_nontoric(y4, R5, K5);  
+            plot(z5, y4, 'k')
             
-  
+            % Retina (fovea)
+            t5 = obj.data.Thickness(5);
+            R6 = obj.data.Radius(6);            
+            y6 = (-obj.data.SemiDiameter(6):0.1:obj.data.SemiDiameter(6))';
+            z6 = t2 + t3 + t4 + t5 + sag_nontoric(y6, R6);
+            plot(z6, y6, 'k')
+            
+            % Outer sclera
             
             hold off
             xlim(z_axis.x)
@@ -110,4 +126,16 @@ classdef Arizona < handle
         end       
     end
 end
+
+function Z = sag_nontoric(Y, R, K)
+arguments
+    Y (:, 1) double % Radial distance
+    R (1,1) double % Radius of curvature
+    K (1,1) double = 0 % Conic constant (unitless)
+end
+
+Z = ((1/R) * Y.^2) ./ (1 + sqrt(1 - (1 + K) * (Y.^2) / R^2));
+end
+
+
 
