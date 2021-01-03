@@ -78,19 +78,30 @@ classdef LensSystem < handle
             obj.reverse();
         end
         
-        function addAperture(obj, position, semiDiameter)
+        function addStop(obj, position, semiDiameter)
+            % position is relative to corneal apex (mm)
             
         end  
         
+        function updateFirstSurface(obj, name, radius, thickness, index,...
+                semiDiameter, conic)
+            %UPDATEFIRSTSURFACE replaces first surface's properties with
+            %whatever the user inputs
+            
+            obj.lensData(1,:) = table(name, radius, thickness, index,...
+                semiDiameter, conic, 'VariableNames', obj.varNames);
+            obj.reverse(); % reverse version needs updating            
+        end
+        
         function updateLastSurface(obj, name, radius, thickness, index,...
                 semiDiameter, conic)
-            %UPDATELASTSURFACE replaces last surface's properties
+            %UPDATELASTSURFACE replaces last surface's properties with
+            %whatever the user inputs
             %   Sometimes one desires to adjust the image surface 
             
-            % Update last row and the reversed lens data table
             obj.lensData(end,:) = table(name, radius, thickness, index,...
                 semiDiameter, conic, 'VariableNames', obj.varNames);
-            obj.reverse();
+            obj.reverse(); % reverse version needs updating
         end
         
     end% Public methods    
