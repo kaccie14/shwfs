@@ -7,15 +7,20 @@ classdef Arizona < handle
     %
     %   Arizona model doesn't include semi-diameters of each surface
     %   Origin is defined at corneal apex
+    %
+    %   retina: result only used for sclera modeling
     
     properties (Constant, Access = private)
         sd = [6 6 5 5 0.5] % semi-diameters (mm)
         cornealThickness = 0.55; % central thickness of cornea (mm)
+        vitreousThickness = 16.713; % mm
+        acd = 3.52; % nominal anterior chamber depth (mm)
     end
     
     properties (Access = private)
         lensSystem
-        aqueousThickness = 2.97; % unaccomodated aqueous thickness
+        aqueousThickness = 2.97; % nominal aqueous thickness (mm)
+        retina; % retinal shape (non-foveal)
     end
     
     properties (SetAccess = private, GetAccess = public)
@@ -24,6 +29,7 @@ classdef Arizona < handle
     end
     
     methods (Access = public)
+        
         function obj = Arizona(A)
             %ARIZONA Construct an instance of Arizona Eye Model
             %   Initialize lens system with Arizona eye properties with
@@ -31,6 +37,7 @@ classdef Arizona < handle
             
             ct = obj.cornealThickness;
             at = obj.aqueousThickness - 0.04 * A;
+            vt = obj.vitreousThickness;
             
             % Optical parameters are unitless or in mm
             ls = LensSystem();
@@ -38,7 +45,7 @@ classdef Arizona < handle
             ls.addSurface("Aqueous", 6.5, at, 1.337, obj.sd(2), -0.25)
             ls.addSurface("Lens", 12.0 - 0.4*A, 3.767 + 0.04*A,...
                 1.42 + 0.00256*A - 0.00022*A^2, obj.sd(3), -7.518749 + 1.285720*A)
-            ls.addSurface("Vitreous", -5.224557 + 0.2*A, 16.713, 1.336,...
+            ls.addSurface("Vitreous", -5.224557 + 0.2*A, vt, 1.336,...
                 obj.sd(4), -1.353971 - 0.431762*A)
             ls.updateLastSurface("Retina", -13.4, 0, 0, obj.sd(5), 0)
             
@@ -48,6 +55,34 @@ classdef Arizona < handle
             obj.data = ls.lensData;
             obj.stop.size = 3;
             obj.stop.position = ct + at;
+            
+            % Generate eye shape
+            % anterior cornea
+            obj.createRetina(); % retina (non-foveal)
+            % sclera
+            
+
+        end
+        
+        function createRetina(obj)
+            y0 = radial(obj.acd, obj.data.Radius(2), obj.data.Conic(2));
+            z0 = sag_nontoric(y0, obj.data.Radius(3), obj.data.Conic(3),...
+                obj.cornealThickness);
+            z1 = obj.axialLength; % foveal plane (wrt corneal apex)
+            y1 = obj.sd(end); % Radial position of foveal edg          
+            R = obj.data.Radius(end); % Foveal radius of curvature
+            sag = sag_nontoric(y1, R);
+            s = (R - sag) / sqrt(R^2 - (R - sag)^2);
+            m = -1/s; % slope of line normal to retina at (positive) edge
+            b = -m * (obj.axialLength + R);
+            
+            % Center and radius of curvature
+            obj.retina.Cz = (z1^2 + y1^2 - z0^2 - y0^2 + 2*b*(y0-y1)) / ...
+                (2*(z1 - z0) + 2*m*(y1 - y0));
+            obj.retina.Cy = m * obj.retina.Cz + b;
+            obj.retina.R = sqrt((z0 - obj.retina.Cz)^2 +...
+                (y0 - obj.retina.Cy)^2);
+            obj.retina.K = 0;
         end
         
         function a = anteriorChamberDepth(obj)
@@ -55,69 +90,71 @@ classdef Arizona < handle
         end
         
         function l = axialLength(obj)
-            l = sum(obj.data.Thickness);
+            T = obj.data.Thickness;
+            l = sum(T(2:end));
         end
         
         function m = entrancePupil(obj)
             m = 1;
         end
           
-        function draw(obj)
+        function draw(obj)           
+            p = 5; % padding on either side of plot
+            dz = 0.01;
+            dy = 0.1;
             
-            % Optical axis
-            p = 5; % padding on either side of plot            
+            % Optical axis         
             z_axis.x = [-p (sum(obj.data.Thickness)+p)];
             z_axis.y = [0 0];
             figure
             plot(z_axis.x, z_axis.y, 'k', 'LineWidth', 3)
-            hold on
-            
-%             sd = obj.data.SemiDiameter(2);
-%             xc = 0 + R; % yc = 0 always
-%             theta = ceil(atand(6/R));
-%             t = (-theta:theta)';
-%             x = xc - R * cosd(t);
-%             y = R * sind(t);        
+            hold on      
 
             % Anterior cornea
             R2 = obj.data.Radius(2);
             K2 = obj.data.Conic(2);           
-            acd = obj.aqueousThickness + obj.cornealThickness;
-            z2 = (0:0.1:acd)'; % extends out to whatever corresponds to ACD
-            y2 = sqrt(R2^2 - (z2*(K2 + 1) - R2).^2) / sqrt(K2 + 1);
-            plot([z2 z2], [y2 -y2], 'k')
+            z2 = (0:dz:obj.acd)'; % extends out to whatever corresponds to ACD
+            y2 = radial(z2, R2, K2);
+            plot([z2 z2], [y2 -y2], 'r')
             
             % Posterior cornea
             t2 = obj.data.Thickness(2);
             R3 = obj.data.Radius(3);
             K3 = obj.data.Conic(3);   
-            y3 = (-max(y2):0.1:max(y2))';
-            z3 = t2 + sag_nontoric(y3, R3, K3);
-            plot(z3, y3, 'k')
+            y3 = (-max(y2):dy:max(y2))';
+            z3 = sag_nontoric(y3, R3, K3, t2);
+            plot(z3, y3, 'r')
             
             % Anterior lens
             t3 = obj.data.Thickness(3);
             R4 = obj.data.Radius(4);
             K4 = obj.data.Conic(4);
-            y4 = (-obj.data.SemiDiameter(4):0.1:obj.data.SemiDiameter(4))';
-            z4 = t2 + t3 + sag_nontoric(y4, R4, K4);  
-            plot(z4, y4, 'k')
+            y4 = (-obj.data.SemiDiameter(4):dy:obj.data.SemiDiameter(4))';
+            z4 = sag_nontoric(y4, R4, K4, t2 + t3);  
+            plot(z4, y4, 'r')
             
             % Posterior lens
             t4 = obj.data.Thickness(4);
             R5 = obj.data.Radius(5);
             K5 = obj.data.Conic(5);
-            z5 = t2 + t3 + t4 + sag_nontoric(y4, R5, K5);  
-            plot(z5, y4, 'k')
+            z5 = sag_nontoric(y4, R5, K5, t2 + t3 + t4);  
+            plot(z5, y4, 'r')
             
-            % Retina (fovea)
-            t5 = obj.data.Thickness(5);
-            R6 = obj.data.Radius(6);            
-            y6 = (-obj.data.SemiDiameter(6):0.1:obj.data.SemiDiameter(6))';
-            z6 = t2 + t3 + t4 + t5 + sag_nontoric(y6, R6);
-            plot(z6, y6, 'k')
+            % Fovea
+            R6 = obj.data.Radius(6);    
+            l = obj.axialLength;
+            y6 = (-obj.data.SemiDiameter(6):dy:obj.data.SemiDiameter(6))';
+            z6 = sag_nontoric(y6, R6, 0, l);
+            plot(z6, y6, 'r')
             
-            % Outer sclera
+            % Non-foveal retina
+            o = obj.retina.Cz - obj.retina.R; 
+            z_end = round(l + sag_nontoric(max(y6),R6,l), 1);
+            z = (max(z3):dz:z_end)';
+            y = obj.retina.Cy + radial(z, obj.retina.R, 0, o);
+            plot([z z], [y -y], 'k')
+            
+            % Sclera
             
             hold off
             xlim(z_axis.x)
@@ -127,15 +164,26 @@ classdef Arizona < handle
     end
 end
 
-function Z = sag_nontoric(Y, R, K)
+function Z = sag_nontoric(Y, R, K, O)
 arguments
-    Y (:, 1) double % Radial distance
+    Y (:,1) double % Radial distance
     R (1,1) double % Radius of curvature
     K (1,1) double = 0 % Conic constant (unitless)
+    O (1,1) double = 0 % z-axis offset
 end
 
-Z = ((1/R) * Y.^2) ./ (1 + sqrt(1 - (1 + K) * (Y.^2) / R^2));
+Z = O + ((1/R) * Y.^2) ./ (1 + sqrt(1 - (1 + K) * (Y.^2) / R^2));
 end
 
+function Y = radial(Z, R, K, O)
+% Radial distance as from sag; essentially the inverse of "sag_nontoric"
+arguments
+    Z (:,1) double % Sag
+    R (:,1) double % Radius of curvature
+    K (1,1) double = 0 % Conic constant (unitlessw)
+    O (1,1) double = 0 % z-axis offset
+end
 
-
+Z = Z - O; % apply offset
+Y = sqrt(R^2 - (Z * (K + 1) - R).^2) / sqrt(K + 1);
+end
