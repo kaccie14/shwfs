@@ -21,11 +21,13 @@ classdef Arizona < handle
         lensSystem
         aqueousThickness = 2.97; % nominal aqueous thickness (mm)
         retina; % retinal shape (non-foveal)
+        retinaCreated = false;
+        sclera; % (outer) scleral shape
     end
     
     properties (SetAccess = private, GetAccess = public)
         data
-        stop % iris position and size
+        stop % iris position and size 
     end
     
     methods (Access = public)
@@ -59,9 +61,7 @@ classdef Arizona < handle
             % Generate eye shape
             % anterior cornea
             obj.createRetina(); % retina (non-foveal)
-            % sclera
-            
-
+            obj.createSclera(); % outer sclera
         end
         
         function createRetina(obj)
@@ -83,10 +83,44 @@ classdef Arizona < handle
             obj.retina.R = sqrt((z0 - obj.retina.Cz)^2 +...
                 (y0 - obj.retina.Cy)^2);
             obj.retina.K = 0;
+            obj.retinaCreated = true;
         end
         
+        function createSclera(obj)
+            % Outer sclera assumed because that's what's usually assumed
+            % when referring to the "white" of the eye
+            if ~obj.retinaCreated
+               error("Cannot create sclera before retina is created")
+            end
+            
+            % Anterior cornea
+            za = obj.acd;
+            ya = radial(za, obj.data.Radius(2), obj.data.Conic(2));
+            
+            % Outer sclera
+            obj.sclera.Cz = obj.retina.Cz;
+            obj.sclera.Cy = 0;
+            obj.sclera.Ez = obj.axialLength + obj.scleralThickness;
+            obj.sclera.R = sqrt((za - obj.sclera.Cz)^2 + ya^2);
+            obj.sclera.K = 0;
+        end
+             
         function a = anteriorChamberDepth(obj)
             a = obj.aqueousThickness + obj.cornealThickness;          
+        end
+        
+        function t = scleralThickness(obj)        
+            % Anterior cornea
+            za = obj.acd;
+            ya = radial(za, obj.data.Radius(2), obj.data.Conic(2));
+            
+            % Posterior cornea
+            yb = ya; % this will most likely change in future
+            zb = sag_nontoric(yb, obj.data.Radius(3), obj.data.Conic(3),...
+                obj.data.Thickness(2));
+            
+            % Scleral thickness
+            t = sqrt((za - zb)^2 + (ya - yb)^2);
         end
         
         function l = axialLength(obj)
@@ -107,7 +141,7 @@ classdef Arizona < handle
             z_axis.x = [-p (sum(obj.data.Thickness)+p)];
             z_axis.y = [0 0];
             figure
-            plot(z_axis.x, z_axis.y, 'k', 'LineWidth', 3)
+            plot(z_axis.x, z_axis.y, 'k')
             hold on      
 
             % Anterior cornea
@@ -148,21 +182,33 @@ classdef Arizona < handle
             plot(z6, y6, 'r')
             
             % Non-foveal retina
-            o = obj.retina.Cz - obj.retina.R; 
+            or = obj.retina.Cz - obj.retina.R; 
             z_end = round(l + sag_nontoric(max(y6),R6,l), 1);
-            z = (max(z3):dz:z_end)';
-            y = obj.retina.Cy + radial(z, obj.retina.R, 0, o);
-            plot([z z], [y -y], 'k')
+            zr = (max(z3):dz:z_end)';
+            yr = obj.retina.Cy + radial(zr, obj.retina.R,...
+                obj.retina.K, or);
+            plot([zr zr], [yr -yr], 'k')
             
             % Sclera
+            os = obj.sclera.Cz - obj.sclera.R;
+            zs = (obj.acd:dz:obj.sclera.Ez)';
+            ys = radial(zs, obj.sclera.R, obj.sclera.K, os);
+            plot([zs zs], [ys -ys], 'k')
             
             hold off
             xlim(z_axis.x)
             xlabel("z (mm)"), ylabel("y (mm)")
             grid on, axis equal
-        end       
+        end
+        
+        function verification(obj)
+            % TODO: verify sclera thickness calculation within specs
+            % TODO: verify eyeball centroid calculation (issue #11)
+        end
     end
 end
+
+%% Helper functions
 
 function Z = sag_nontoric(Y, R, K, O)
 arguments
@@ -185,5 +231,5 @@ arguments
 end
 
 Z = Z - O; % apply offset
-Y = sqrt(R^2 - (Z * (K + 1) - R).^2) / sqrt(K + 1);
+Y = real(sqrt(R^2 - (Z * (K + 1) - R).^2) / sqrt(K + 1));
 end
