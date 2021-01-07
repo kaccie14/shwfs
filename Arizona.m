@@ -1,7 +1,7 @@
 classdef Arizona < handle
     %ARIZONA Arizona (AZ) eye model
     %   Paraxial eye models can estimate cardinal points, pupils,
-    %   magnification, etc. (first-order effects). The AZ model also 
+    %   magnification, etc. (first-order effects). The AZ model also
     %   matches clinical levels of aberration and models accommodation.
     %
     %   Following extensions are not part of the AZ model but are included:
@@ -26,7 +26,7 @@ classdef Arizona < handle
     
     properties (SetAccess = private, GetAccess = public)
         data
-        stop % iris position and size 
+        stop % iris position and size
         
         % Characteristics R, K, (Cz, Cy), (Ez, Ey)
         cornea; % anterio cornea assumed
@@ -90,7 +90,7 @@ classdef Arizona < handle
             z0 = sag_nontoric(y0, obj.data.Radius(3), obj.data.Conic(3),...
                 obj.cornealThickness);
             z1 = obj.axialLength; % foveal plane (wrt corneal apex)
-            y1 = obj.sd(end); % Radial position of foveal edg          
+            y1 = obj.sd(end); % Radial position of foveal edg
             R = obj.data.Radius(end); % Foveal radius of curvature
             sag = sag_nontoric(y1, R);
             s = (R - sag) / sqrt(R^2 - (R - sag)^2);
@@ -111,7 +111,7 @@ classdef Arizona < handle
             % Outer sclera assumed because that's usually the case when
             % referring to the "white" of the eye
             if ~obj.retinaCreated
-               error("Cannot create sclera before retina is created")
+                error("Cannot create sclera before retina is created")
             end
             
             % Anterior cornea
@@ -130,53 +130,8 @@ classdef Arizona < handle
             c = obj.centroidCornea() + obj.centroidSclera;
         end
         
-        % TODO: make these private methods
-        function c = centroidCornea(obj)
-            R = obj.cornea.R;
-            K = obj.cornea.K;
-            
-            % limits of integration
-            u1 = 3.52 * (K + 1) - R;
-            u0 = -R;
-            
-            % centroid integral formulas
-            n = @(u) (1/(K+1)^(5/2)) * ((R/2)*(u*sqrt(R^2 - u^2) +...
-                (R^2)*asin(u/R)) - (1/3)*(R^2 - u^2)^(3/2));
-            d = @(u) (0.5/(K+1)^(3/2)) * (u*sqrt(R^2 - u^2) +...
-                (R^2)*asin(u/R));       
-            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
-        end
-        
-        function c = centroidSclera(obj)
-            R = obj.sclera.R;
-            
-            % limits of integration
-            u0 = obj.acd - (obj.sclera.Cz - R) - R;
-            u1 = R;
-            
-            % centroid integral formulas
-            n = @(u)  (R/2) * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R)) -...
-                (1/3)*(R^2 - u^2)^(3/2);
-            d = @(u) 0.5 * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R));       
-            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
-        end
-        
         function a = anteriorChamberDepth(obj)
-            a = obj.aqueousThickness + obj.cornealThickness;          
-        end
-        
-        function t = scleralThickness(obj)        
-            % Anterior cornea
-            za = obj.acd;
-            ya = radial(za, obj.data.Radius(2), obj.data.Conic(2));
-            
-            % Posterior cornea
-            yb = ya; % this will most likely change in future
-            zb = sag_nontoric(yb, obj.data.Radius(3), obj.data.Conic(3),...
-                obj.data.Thickness(2));
-            
-            % Scleral thickness
-            t = sqrt((za - zb)^2 + (ya - yb)^2);
+            a = obj.aqueousThickness + obj.cornealThickness;
         end
         
         function l = axialLength(obj)
@@ -187,7 +142,7 @@ classdef Arizona < handle
         function m = entrancePupil(obj)
             m = 1;
         end
-          
+        
         function draw(obj, internal)
             arguments
                 obj
@@ -197,16 +152,16 @@ classdef Arizona < handle
             dz = 0.01;
             dy = 0.1;
             
-            % Optical axis         
+            % Optical axis
             z_axis.x = [-p (sum(obj.data.Thickness)+p)];
             z_axis.y = [0 0];
             figure;
             plot(z_axis.x, z_axis.y, 'k')
-            hold on      
-
+            hold on
+            
             % Anterior cornea
             R2 = obj.data.Radius(2);
-            K2 = obj.data.Conic(2);           
+            K2 = obj.data.Conic(2);
             z2 = (0:dz:obj.acd)'; % extends out to whatever corresponds to ACD
             y2 = radial(z2, R2, K2);
             plot([z2 z2], [y2 -y2], 'r')
@@ -264,11 +219,71 @@ classdef Arizona < handle
         end
         
         function verification(obj)
-            % TODO: verify sclera thickness calculation within specs
             % TODO: verify eyeball centroid calculation (issue #11)
+            
+            
+            % Scleral thickness 0.50 +/- 0.05 mm (tentative)
+            t = obj.scleralThickness;
         end
     end
+    
+    %% Private methods
+    
+    methods (Access = private)
+              
+        function c = centroidCornea(obj)
+            R = obj.cornea.R;
+            K = obj.cornea.K;
+            
+            % limits of integration
+            u1 = 3.52 * (K + 1) - R;
+            u0 = -R;
+            
+            % centroid integral formulas
+            n = @(u) (1/(K+1)^(5/2)) * ((R/2)*(u*sqrt(R^2 - u^2) +...
+                (R^2)*asin(u/R)) - (1/3)*(R^2 - u^2)^(3/2));
+            d = @(u) (0.5/(K+1)^(3/2)) * (u*sqrt(R^2 - u^2) +...
+                (R^2)*asin(u/R));
+            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
+        end
+        
+        function c = centroidSclera(obj)
+            R = obj.sclera.R;
+            
+            % limits of integration
+            u0 = obj.acd - (obj.sclera.Cz - R) - R;
+            u1 = R;
+            
+            % centroid integral formulas
+            n = @(u)  (R/2) * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R)) -...
+                (1/3)*(R^2 - u^2)^(3/2);
+            d = @(u) 0.5 * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R));
+            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
+        end
+        
+        function t = scleralThickness(obj)
+            % Anterior cornea
+            za = obj.acd;
+            ya = radial(za, obj.data.Radius(2), obj.data.Conic(2));
+            
+            % Posterior cornea
+            yb = ya; % this will most likely change in future
+            zb = sag_nontoric(yb, obj.data.Radius(3), obj.data.Conic(3),...
+                obj.data.Thickness(2));
+            
+            % Scleral thickness
+            t = sqrt((za - zb)^2 + (ya - yb)^2);
+        end
+        
+        
+    end
+    
 end
+
+
+
+
+
 
 %% Helper functions
 
