@@ -121,13 +121,15 @@ classdef Arizona < handle
             % Outer sclera
             obj.sclera.Cz = obj.retina.Cz;
             obj.sclera.Cy = 0;
-            obj.sclera.Ez = obj.axialLength + obj.scleralThickness;
             obj.sclera.R = sqrt((za - obj.sclera.Cz)^2 + ya^2);
+            obj.sclera.Ez = obj.sclera.Cz + obj.sclera.R;          
             obj.sclera.K = 0;
         end
         
         function c = centroid(obj)
-            c = obj.centroidCornea() + obj.centroidSclera;
+            [zc, c] = obj.centroidCornea;
+            [zs, s] = obj.centroidSclera;           
+            c = (zc + zs) / (c + s);  
         end
         
         function a = anteriorChamberDepth(obj)
@@ -208,7 +210,7 @@ classdef Arizona < handle
             
             % Sclera
             os = obj.sclera.Cz - obj.sclera.R;
-            zs = (obj.acd:dz:obj.sclera.Ez)';
+            zs = (obj.acd:dz:ceil(obj.sclera.Ez))';
             ys = radial(zs, obj.sclera.R, obj.sclera.K, os);
             plot([zs zs], [ys -ys], 'k')
             
@@ -219,7 +221,33 @@ classdef Arizona < handle
         end
         
         function verification(obj)
-            % TODO: verify eyeball centroid calculation (issue #11)
+            % Verify eyeball centroid calculation (issue #11)
+            
+            z = 0:0.1:obj.sclera.Ez;
+            y = zeros(size(z));
+            
+            ind_acd = sum(z < obj.acd);
+            y(1:ind_acd) = radial(z(1:ind_acd), obj.cornea.R, obj.cornea.K);
+            y(ind_acd+1:end) = radial(z(ind_acd+1:end), obj.sclera.R,...
+                obj.sclera.K, obj.sclera.Cz - obj.sclera.R);        
+            Y = abs((-max(y):0.1:max(y))' * ones(1,numel(z)));
+            L = false(size(Y));
+           
+            
+            for ind = 1:size(Y,2)
+                c = Y(:,ind) < y(ind);
+                L(:,ind) = c;
+            end
+            
+            Z = ones(size(Y,1),1) * z;
+     
+            sum(sum(Z.*L)) / sum(sum(L))
+            
+            imagesc(L);
+            axis image
+            
+            %plot(z,y);     
+
             
             
             % Scleral thickness 0.50 +/- 0.05 mm (tentative)
@@ -231,7 +259,7 @@ classdef Arizona < handle
     
     methods (Access = private)
               
-        function c = centroidCornea(obj)
+        function [c, m] = centroidCornea(obj)
             R = obj.cornea.R;
             K = obj.cornea.K;
             
@@ -244,21 +272,34 @@ classdef Arizona < handle
                 (R^2)*asin(u/R)) - (1/3)*(R^2 - u^2)^(3/2));
             d = @(u) (0.5/(K+1)^(3/2)) * (u*sqrt(R^2 - u^2) +...
                 (R^2)*asin(u/R));
-            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
+            
+            % characteristic function
+            c = n(u1) - n(u0);
+            
+            % measure
+            m = d(u1) - d(u0);
         end
         
-        function c = centroidSclera(obj)
+        function [c, m] = centroidSclera(obj)
             R = obj.sclera.R;
+            Cz = obj.sclera.Cz;
+            u0 = obj.acd - Cz; %u = z - Cz
+            u1 = R;       
             
             % limits of integration
-            u0 = obj.acd - (obj.sclera.Cz - R) - R;
-            u1 = R;
+%             u0 = obj.acd - (obj.sclera.Cz - R) - R;
+%             u1 = R;
             
             % centroid integral formulas
-            n = @(u)  (R/2) * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R)) -...
+            n = @(u)  (Cz/2) * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R)) -...
                 (1/3)*(R^2 - u^2)^(3/2);
             d = @(u) 0.5 * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R));
-            c = (n(u1) - n(u0)) / (d(u1) - d(u0));
+            
+            % characteristic function
+            c = n(u1) - n(u0);
+            
+            % measure
+            m = d(u1) - d(u0);      
         end
         
         function t = scleralThickness(obj)
@@ -274,15 +315,10 @@ classdef Arizona < handle
             % Scleral thickness
             t = sqrt((za - zb)^2 + (ya - yb)^2);
         end
-        
-        
+         
     end
     
 end
-
-
-
-
 
 
 %% Helper functions
