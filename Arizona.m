@@ -214,42 +214,25 @@ classdef Arizona < handle
             ys = radial(zs, obj.sclera.R, obj.sclera.K, os);
             plot([zs zs], [ys -ys], 'k')
             
-            hold off
-            xlim(z_axis.x)
+            hold off, xlim(z_axis.x)
             xlabel("z (mm)"), ylabel("y (mm)")
             grid on, axis equal
         end
         
         function verification(obj)
             % Verify eyeball centroid calculation (issue #11)
-            
-            z = 0:0.1:obj.sclera.Ez;
-            y = zeros(size(z));
-            
-            ind_acd = sum(z < obj.acd);
-            y(1:ind_acd) = radial(z(1:ind_acd), obj.cornea.R, obj.cornea.K);
-            y(ind_acd+1:end) = radial(z(ind_acd+1:end), obj.sclera.R,...
-                obj.sclera.K, obj.sclera.Cz - obj.sclera.R);        
-            Y = abs((-max(y):0.1:max(y))' * ones(1,numel(z)));
-            L = false(size(Y));
-           
-            
-            for ind = 1:size(Y,2)
-                c = Y(:,ind) < y(ind);
-                L(:,ind) = c;
+            [L, Z] = obj.matte();
+            c = sum(sum(Z.*L)) / sum(sum(L)); % numerical centroid
+            if (abs(obj.centroid - c) < 0.1)            
+                fprintf(['Pass: Eyeball centroid position (z) agrees',...
+                    'with numerical estimate within 0.1 mm, %1.2f mm'], c);
+            else
+                fprintf("Fail: Eyeball centroid");
             end
+            %imagesc(L); axis image, colormap gray, axis off
             
-            Z = ones(size(Y,1),1) * z;
-     
-            sum(sum(Z.*L)) / sum(sum(L))
-            
-            imagesc(L);
-            axis image
-            
-            %plot(z,y);     
+            % Verify pupil location
 
-            
-            
             % Scleral thickness 0.50 +/- 0.05 mm (tentative)
             t = obj.scleralThickness;
         end
@@ -259,6 +242,23 @@ classdef Arizona < handle
     
     methods (Access = private)
               
+        function [L, Z] = matte(obj)
+            % Generat a binary image of eyeball
+            z = 0:0.1:obj.sclera.Ez;
+            y = zeros(size(z));
+            ind_acd = sum(z < obj.acd);
+            y(1:ind_acd) = radial(z(1:ind_acd), obj.cornea.R, obj.cornea.K);
+            y(ind_acd+1:end) = radial(z(ind_acd+1:end), obj.sclera.R,...
+                obj.sclera.K, obj.sclera.Cz - obj.sclera.R);        
+            Y = abs((-max(y):0.1:max(y))' * ones(1,numel(z)));
+            L = false(size(Y));
+            for ind = 1:size(Y,2)
+                c = Y(:,ind) < y(ind);
+                L(:,ind) = c;
+            end
+            Z = ones(size(Y,1),1) * z;
+        end
+        
         function [c, m] = centroidCornea(obj)
             R = obj.cornea.R;
             K = obj.cornea.K;
@@ -285,11 +285,7 @@ classdef Arizona < handle
             Cz = obj.sclera.Cz;
             u0 = obj.acd - Cz; %u = z - Cz
             u1 = R;       
-            
-            % limits of integration
-%             u0 = obj.acd - (obj.sclera.Cz - R) - R;
-%             u1 = R;
-            
+
             % centroid integral formulas
             n = @(u)  (Cz/2) * (u*sqrt(R^2 - u^2) + (R^2)*asin(u/R)) -...
                 (1/3)*(R^2 - u^2)^(3/2);
