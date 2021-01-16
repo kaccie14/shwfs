@@ -141,9 +141,27 @@ classdef Arizona < handle
             l = sum(T(2:end));
         end
         
+        %% TODO
+        %1/10 defining stops in lenSystem
+        
         function m = entrancePupil(obj)
             m = 1;
+            
         end
+        
+        function m = exitPupil(obj)
+            %obj.lensSystem.trace(from, to)
+            
+            m = 1;
+            
+            % g
+            
+            
+            
+        end
+        
+        
+        %% end
         
         function draw(obj, internal)
             arguments

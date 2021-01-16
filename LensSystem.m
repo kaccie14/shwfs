@@ -1,9 +1,11 @@
 classdef LensSystem < handle
     %OPTICALSYSTEM models a paraxial optical system
     %   After constructing an instance of the class, individual surfaces
-    %   are added by the user to model an optical system. By default, the
-    %   constructed optical system will have an object (OBJ) and an image
-    %   (IMA) surface with the latter fully absorbant 
+    %   are added by the user to model an optical system.
+    %   By default:
+    %   - constructed optical system will have an object (OBJ) and an image
+    %   (IMA) surface with the latter fully absorbant. 
+    %   - stop is in
     %
     %   Frame of reference originates from the vertex of the first surface,
     %   and light is assumed to travel from left to right. only paraxial
@@ -22,8 +24,7 @@ classdef LensSystem < handle
     properties (SetAccess = private, GetAccess = public)
         lensData % table
         lensDataReverse % reversed optical system has no image plane
-        apertureSize % aperture-stop diameter (mm)
-        aperturePosition % aperture position to right of first surface (mm)
+        stop % [position, size] aperture-stop position and diameter (mm)
     end
     
     methods (Access = private)
@@ -55,6 +56,8 @@ classdef LensSystem < handle
             obj.lensData(2,:) = {'IMA', inf, 0, 1j*inf, 0, 0};
             obj.lensDataReverse = cell2table({'OBJ', inf, 0, 1, inf, 0},...
                 'VariableNames', obj.varNames);
+            obj.stop.size = inf;
+            obj.stop.position = 0;
         end
         
         function addSurface(obj, name, radius, thickness, index,...
@@ -79,7 +82,6 @@ classdef LensSystem < handle
         end
         
         function addStop(obj, position, semiDiameter)
-            % position is relative to corneal apex (mm)
             
         end  
         
