@@ -5,7 +5,7 @@ classdef LensSystem < handle
     %   By default:
     %   - constructed optical system will have an object (OBJ) and an image
     %   (IMA) surface with the latter fully absorbant. 
-    %   - stop is in
+    %   - origin (z = 0 is defined at surface 2
     %
     %   Frame of reference originates from the vertex of the first surface,
     %   and light is assumed to travel from left to right. only paraxial
@@ -75,20 +75,26 @@ classdef LensSystem < handle
             % peg OBJ subtense to smallest surface clear apertur
             if obj.lensData(1,:).SemiDiameter > semiDiameter
                 obj.lensData(1,:).SemiDiameter = semiDiameter;
-            end 
-              
-            % Update reverse lens data table
-            obj.reverse();
+            end   
+            obj.reverse(); % Update reverse lens data table
         end
         
-        function addStop(obj, position, semiDiameter)
-            
-        end  
+%         function addStop(obj, position, semiDiameter)   
+%         end  
         
         function updateFirstSurface(obj, name, radius, thickness, index,...
                 semiDiameter, conic)
             %UPDATEFIRSTSURFACE replaces first surface's properties with
             %whatever the user inputs
+            arguments
+                obj
+                name
+                radius (1,1) double = obj.lensData.Radius(1)
+                thickness (1,1) double = obj.lensData.Thickness(1)
+                index (1,1) double = obj.lensData.Index(1)
+                semiDiameter (1,1) double = obj.lensData.SemiDiameter(1)
+                conic (1,1) double = obj.lensData.Conic(1)
+            end
             
             obj.lensData(1,:) = table(name, radius, thickness, index,...
                 semiDiameter, conic, 'VariableNames', obj.varNames);
@@ -106,6 +112,54 @@ classdef LensSystem < handle
             obj.reverse(); % reverse version needs updating
         end
         
-    end% Public methods    
+        function M = rayTransferMatrix(obj, s0, reverse)
+            %RAYTRACE praxial ray trace
+            % M: ray transfer matrix from surface s
+            % assume input surface "s" is positive integer
+            arguments
+                obj
+                s0 (1,1) {mustBeNumeric}
+                reverse (1,1) logical = false
+            end
+            
+            M = eye(2);
+            if s0 < 2 % skip object space
+                return
+            else
+                l = obj.lensData;
+                S = height(l) - 1;
+                for s = s0:S
+                    R = l.Radius(s);
+                    n0 = real(l.Index(s-1));
+                    n = real(l.Index(s));
+                    if s < S
+                        d = l.Thickness(s);
+                    else
+                        d = 0;
+                    end
+                    M = [1 0; (1/R)*(n0/n - 1) n0/n]*[1 d; 0 1]*M;
+                end
+% y =M*y0;
+% bfl = -y(1) / tan(y(2))
+                
+            end
+            
+        end
+        
+        
+        
+        
+    end% Public methods 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 end
 
