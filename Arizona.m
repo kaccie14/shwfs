@@ -14,6 +14,9 @@ classdef Arizona < handle
     
     properties (Constant, Access = private)
         sd = [6 6 5 5 0.5] % semi-diameters (mm)
+        cornealIndex = 1.377;
+        aqueousIndex = 1.337;
+        vitreousIndex = 1.336;
         cornealThickness = 0.55; % central thickness of cornea (mm)
         vitreousThickness = 16.713; % mm
         acd = 3.52; % nominal anterior chamber depth (mm)
@@ -22,6 +25,7 @@ classdef Arizona < handle
     properties (Access = private)
         lensSystem
         aqueousThickness = 2.97; % nominal aqueous thickness (mm)
+        accommodation = 0.0; % nominal accommodation (D)
     end
     
     properties (SetAccess = private, GetAccess = public)
@@ -29,7 +33,7 @@ classdef Arizona < handle
         stop % iris position and size
         
         % Characteristics R, K, (Cz, Cy), (Ez, Ey)
-        cornea; % anterio cornea assumed
+        cornea; % anterior cornea assumed
         corneaCreated = false;
         retina; % retinal shape (non-foveal)
         retinaCreated = false;
@@ -45,17 +49,20 @@ classdef Arizona < handle
                 A (1,1) double = 0 % user input diopters of accommodation
             end
             
+            nc = obj.cornealIndex;
             ct = obj.cornealThickness;
+            na = obj.aqueousIndex;
             at = obj.aqueousThickness - 0.04 * A;
+            nv = obj.vitreousIndex;
             vt = obj.vitreousThickness;
             
             % Optical parameters are unitless or in mm
             ls = LensSystem();
-            ls.addSurface("Cornea", 7.8, ct, 1.377, obj.sd(1), -0.25)
-            ls.addSurface("Aqueous", 6.5, at, 1.337, obj.sd(2), -0.25)
+            ls.addSurface("Cornea", 7.8, ct, nc, obj.sd(1), -0.25)
+            ls.addSurface("Aqueous", 6.5, at, na, obj.sd(2), -0.25)
             ls.addSurface("Lens", 12.0 - 0.4*A, 3.767 + 0.04*A,...
-                1.42 + 0.00256*A - 0.00022*A^2, obj.sd(3), -7.518749 + 1.285720*A)
-            ls.addSurface("Vitreous", -5.224557 + 0.2*A, vt, 1.336,...
+                indexLens(A), obj.sd(3), -7.518749 + 1.285720*A)
+            ls.addSurface("Vitreous", -5.224557 + 0.2*A, vt, nv,...
                 obj.sd(4), -1.353971 - 0.431762*A)
             ls.updateFirstSurface("OBJ", inf, 5, 1); % some air
             ls.updateLastSurface("Retina", -13.4, 0, 0, obj.sd(5), 0)
@@ -74,8 +81,7 @@ classdef Arizona < handle
         end
         
         function d = reverse(obj)
-            % return reversed lens data
-            d = obj.lensSystem.lensDataReverse;
+            d = obj.lensSystem.lensDataReverse; % return reversed lens data
         end
         
         function c = centroid(obj)
@@ -97,33 +103,42 @@ classdef Arizona < handle
             v0 = [1; 0];
             M = obj.lensSystem.rayTransferMatrix(2);
             v1 = M*v0;
-            H2F2 = -1/tan(v1(2));
+            H2F2 = -1/tan(v1(2)); % focal length (mm)
             r = height(obj.data) - 1; % row corresponding to vitreous
             n = obj.data.Index(r);
-            P = 1000 * n / H2F2;
+            P = 1000 * n / H2F2; % dioptric Power
+        end
+          
+        function p = entrancePupil(obj)
+            % Locate the principal planes of crystalline lens.
+            H = obj.lensSystem.principalPlanes(2,3);
+            
+            % Iris to pupil (lateral) magnification
+            U = -obj.aqueousIndex / ((obj.aqueousThickness - H.secondary) / 1000);
+            P = obj.powerCornea;
+            V = U + P;
+            p.magnification = U/V;
+            
+            % Pupil position (wrt vertex)
+            p.position = -(1000 / V) - H.primary;          
         end
         
-        %% TODO
-        %1/10 defining stops in lenSystem
-        
-        function m = entrancePupil(obj)
-            m = 1;
+        function p = exitPupil(obj)
+            % Locate the principal planes of crystalline lens.
+            H = obj.lensSystem.principalPlanes(4);
+ 
+            % Iris to pupil (lateral) magnification
+            U = obj.aqueousIndex / (H.primary / 1000);
+            P = obj.powerLens();
+            V = U + P;
+            p.magnification = U / V;
             
-        end
-        
-        function m = exitPupil(obj)
-            %obj.lensSystem.trace(from, to)
-            
-            m = 1;
-            
-            v0 = [1; 0];
-            M = obj.lensSystem.rayTransferMatrix(2);
-            v1 = M*v0;
-            H2F2 = -1/tan(v1(2)) 
-                  
+            % Pupil position (wrt vertex)
+            T = obj.data.Thickness;
+            nv = obj.vitreousIndex;
+            v = (nv / V) * 1000;
+            p.position = sum(T(2:4)) + H.secondary + v;         
         end       
-        
-        %% end
         
         function draw(obj, internal)
             arguments
@@ -199,6 +214,10 @@ classdef Arizona < handle
             grid on, axis equal
         end
         
+        %% TODO
+        % Bring verification work into live editor because we can better
+        % mix in rationale verbiage
+        
         function verification(obj)
             % Verify eyeball centroid calculation (issue #11)
             [L, Z] = obj.matte();
@@ -216,6 +235,7 @@ classdef Arizona < handle
             % Scleral thickness 0.50 +/- 0.05 mm (tentative)
             t = obj.scleralThickness;
         end
+        %% 
     end
     
     %% Private methods
@@ -277,7 +297,31 @@ classdef Arizona < handle
             obj.sclera.Ez = obj.sclera.Cz + obj.sclera.R;          
             obj.sclera.K = 0;
         end
-           
+        
+        function P = powerCornea(obj)
+           Ra = obj.data.Radius(2) / 1000; % anterior corneal radius
+           Rp = obj.data.Radius(3) / 1000; % posterior corneal radius
+           nc = obj.cornealIndex;
+           na = obj.aqueousIndex;
+           t = obj.cornealThickness / 1000;
+           Pa = (nc - 1) / Ra;
+           Pb = (na - nc) / Rp;
+           P = Pa + Pb - (t / nc) * Pa * Pb;         
+        end
+        
+        function P = powerLens(obj)
+            A = obj.accommodation;
+            Ra = obj.data.Radius(4) / 1000;
+            Rp = obj.data.Radius(5) / 1000;
+            na = obj.aqueousIndex;
+            nl = indexLens(A);
+            nv = obj.vitreousIndex;
+            t = obj.data.Thickness(4) / 1000;        
+            Pa = (nl - na) / Ra; 
+            Pb = (nv - nl) / Rp;
+            P = Pa + Pb - (t / nl) * Pa * Pb;   
+        end
+        
         function [L, Z] = matte(obj)
             % Generat a binary image of eyeball
             z = 0:0.1:obj.sclera.Ez;
@@ -354,6 +398,13 @@ end
 
 
 %% Helper functions
+
+function n = indexLens(A)
+    arguments
+        A (1,1) double = 0
+    end
+    n = 1.42 + 0.00256 * A - 0.00022 * A^2;
+end
 
 function Z = sag_nontoric(Y, R, K, O)
 arguments

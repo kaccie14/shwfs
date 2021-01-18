@@ -28,6 +28,7 @@ classdef LensSystem < handle
     end
     
     methods (Access = private)
+        
         function reverse(obj)
             sz = [(height(obj.lensData) - 1) width(obj.lensData)];
             c = flipud(table2cell(obj.lensData));
@@ -40,7 +41,9 @@ classdef LensSystem < handle
             obj.lensDataReverse.Index = cell2mat(c(2:end,4));
             obj.lensDataReverse.SemiDiameter = cell2mat(c(1:end-1,5));
             obj.lensDataReverse.Conic = cell2mat(c(1:end-1,6));
+            obj.lensDataReverse(end+1,:) = {'IMA', inf, 0, 1j*inf, 0, 0};
         end % this function might be removed
+        
     end
     
     methods (Access = public)
@@ -72,7 +75,7 @@ classdef LensSystem < handle
             obj.lensData(end,:) = row;
             obj.lensData = [obj.lensData; ima];
             
-            % peg OBJ subtense to smallest surface clear apertur
+            % peg OBJ subtense to smallest surface clear aperture
             if obj.lensData(1,:).SemiDiameter > semiDiameter
                 obj.lensData(1,:).SemiDiameter = semiDiameter;
             end   
@@ -111,14 +114,35 @@ classdef LensSystem < handle
                 semiDiameter, conic, 'VariableNames', obj.varNames);
             obj.reverse(); % reverse version needs updating
         end
-        
-        function M = rayTransferMatrix(obj, s0, reverse)
-            %RAYTRACE praxial ray trace
-            % M: ray transfer matrix from surface s
-            % assume input surface "s" is positive integer
+              
+        function H = principalPlanes(obj, s0, s1)
+            % Compute principal planes. Results are given with respect to
+            % 1st and last optical surfaces for H1 and H2 respectively
+            % (i.e. H < 0 means plane is located INSIDE optical system)
             arguments
                 obj
                 s0 (1,1) {mustBeNumeric}
+                s1 (1,1) {mustBeNumeric} = height(obj.lensData) - 1
+            end
+            n = height(obj.lensData); % total number of surfaces
+            v0 = [1; 0]; % parallel ray input
+            
+            % Find principal planes
+            M = obj.rayTransferMatrix(s0, s1);
+            v1 = M * v0;
+            H.secondary = (1 - v1(1)) / tan(v1(2));
+            M = obj.rayTransferMatrix(n-s1+1, n-s0+1, true);
+            v1 = M * v0;    
+            H.primary = (1 - v1(1)) / tan(v1(2));
+        end
+        
+        function M = rayTransferMatrix(obj, s0, s1, reverse)
+            %RAYTRACE praxial ray trace
+            % M: ray transfer matrix from surface s
+            arguments
+                obj
+                s0 (1,1) {mustBeNumeric}
+                s1 (1,1) {mustBeNumeric} = height(obj.lensData) - 1
                 reverse (1,1) logical = false
             end
             
@@ -126,39 +150,32 @@ classdef LensSystem < handle
             if s0 < 2 % skip object space
                 return
             else
-                l = obj.lensData;
-                S = height(l) - 1;
-                for s = s0:S
+                if reverse
+                    l = obj.lensDataReverse;
+                else
+                    l = obj.lensData;
+                end
+                
+                for s = s0:s1
                     R = l.Radius(s);
                     n0 = real(l.Index(s-1));
                     n = real(l.Index(s));
-                    if s < S
+                    if s < s1
                         d = l.Thickness(s);
                     else
                         d = 0;
                     end
-                    M = [1 0; (1/R)*(n0/n - 1) n0/n]*[1 d; 0 1]*M;
+                    M = [1 d; 0 1]*[1 0; (1/R)*(n0/n - 1) n0/n]*M;
                 end
-% y =M*y0;
-% bfl = -y(1) / tan(y(2))
                 
-            end
-            
+            end   
         end
-        
-        
-        
+         
         
     end% Public methods 
     
     
-    
-    
-    
-    
-    
-    
-    
+
     
     
 end
