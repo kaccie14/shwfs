@@ -214,28 +214,22 @@ classdef Arizona < handle
             grid on, axis equal
         end
         
-        %% TODO
-        % Bring verification work into live editor because we can better
-        % mix in rationale verbiage
-        
-        function verification(obj)
-            % Verify eyeball centroid calculation (issue #11)
-            [L, Z] = obj.matte();
-            c = sum(sum(Z.*L)) / sum(sum(L)); % numerical centroid
-            if (abs(obj.centroid - c) < 0.1)            
-                fprintf(['Pass: Eyeball centroid position (z) agrees ',...
-                    'with numerical estimate within 0.1 mm, %1.2f mm'], c);
-            else
-                fprintf("Fail: Eyeball centroid");
+        function [B, Z] = matte(obj)
+            % Generate a binary image of eyeball
+            z = 0:0.1:obj.sclera.Ez;
+            y = zeros(size(z));
+            ind_acd = sum(z < obj.acd);
+            y(1:ind_acd) = radial(z(1:ind_acd), obj.cornea.R, obj.cornea.K);
+            y(ind_acd+1:end) = radial(z(ind_acd+1:end), obj.sclera.R,...
+                obj.sclera.K, obj.sclera.Cz - obj.sclera.R);
+            Y = abs((-max(y):0.1:max(y))' * ones(1,numel(z)));
+            B = false(size(Y));
+            for ind = 1:size(Y,2)
+                c = Y(:,ind) < y(ind);
+                B(:,ind) = c;
             end
-            %imagesc(L); axis image, colormap gray, axis off
-            
-            % Verify exit pupil is behind iris position
-
-            % Scleral thickness 0.50 +/- 0.05 mm (tentative)
-            t = obj.scleralThickness;
+            Z = ones(size(Y,1),1) * z;
         end
-        %% 
     end
     
     %% Private methods
@@ -320,23 +314,6 @@ classdef Arizona < handle
             Pa = (nl - na) / Ra; 
             Pb = (nv - nl) / Rp;
             P = Pa + Pb - (t / nl) * Pa * Pb;   
-        end
-        
-        function [L, Z] = matte(obj)
-            % Generat a binary image of eyeball
-            z = 0:0.1:obj.sclera.Ez;
-            y = zeros(size(z));
-            ind_acd = sum(z < obj.acd);
-            y(1:ind_acd) = radial(z(1:ind_acd), obj.cornea.R, obj.cornea.K);
-            y(ind_acd+1:end) = radial(z(ind_acd+1:end), obj.sclera.R,...
-                obj.sclera.K, obj.sclera.Cz - obj.sclera.R);        
-            Y = abs((-max(y):0.1:max(y))' * ones(1,numel(z)));
-            L = false(size(Y));
-            for ind = 1:size(Y,2)
-                c = Y(:,ind) < y(ind);
-                L(:,ind) = c;
-            end
-            Z = ones(size(Y,1),1) * z;
         end
         
         function [c, m] = centroidCornea(obj)
