@@ -96,7 +96,8 @@ classdef Arizona < handle
         end
         
         function ps = pupilShiftNear(obj, z, pd)
-            % pd = distance (monocular) pupillary distance (mm)
+            % pd = distance (monocular) pupillary distance (mm); use
+            % pupilShiftDistance to obtain this value.
             if z < 25
                error("Object distance must be greater than 20 cm")
             end
@@ -108,50 +109,6 @@ classdef Arizona < handle
             cs = centroidShift(th);
             th = th - asind(cs/r); % estimated eye rotation
             ps = r * tand(th) + cs;  
-        end
-        
-        function ps = pupilShift(obj, th1, th2)
-           % Linear shift in pupil position when gaze angle goes from "th1"
-           % to "th2" (degrees). Positive change in gaze angle, 
-           % corresponding to negative pupil shift, is convergence
-           % ps = pupil shift (mm)
-           % cr = centroid rotation (degrees)
-           arguments
-               obj
-               th1 (1,1) double
-               th2 (1,1) double = 0
-           end
-           
-           if th1 > 20
-               error("Gaze angle cannot exceed 20 degrees")
-           elseif th1 == th2
-               ps = 0;
-               return
-           end
-           
-           r = obj.centroid() - obj.entrancePupil().position;
-           p = [0.0181, 0.1555];
-           m = 5; 
-           
-           % Outward shift from "th1" to 0
-           so = r * tand(th1);
-           if th1 > m % eyeball translatory movement
-               so = so + p(1) * th1 + p(2);
-           end
-           
-           % Inward shift from 0 to "th2"
-           si = 0;
-           if th2 ~= 0
-               si = -r * tand(th2);
-               if th2 > m
-                   si = si - (p(1) * th2 + p(2)); % approximate
-                   %dth2 = asind(dsi/r);
-                   %si = -(dsi + r * tand(th2 - dth2));
-               end
-           end
-           
-           % Pupil shift is sum of outward and inward shifts
-           ps = so + si;
         end
         
         function c = centroid(obj)
