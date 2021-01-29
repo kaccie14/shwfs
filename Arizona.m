@@ -95,7 +95,7 @@ classdef Arizona < handle
             ps = r * tand(th) + centroidShift(th);
         end
         
-        function ps = pupilShiftNear(obj, z, pd)
+        function ps = pupilShiftNear(obj, z, dpd)
             % pd = distance (monocular) pupillary distance (mm); use
             % pupilShiftDistance to obtain this value.
             if z < 25
@@ -105,10 +105,10 @@ classdef Arizona < handle
             % Pupil position shift is calculated from estimated eye
             % rotation angle
             r = obj.centroid() - obj.entrancePupil().position;
-            th = atand(pd / (10 * z));
+            th = atand(dpd / (10 * z + r));       
             cs = centroidShift(th);
-            th = th - asind(cs/r); % estimated eye rotation
-            ps = r * tand(th) + cs;  
+            th = th - atand(cs/(r + 10*z)); % estimated eye rotation 
+            ps = r * tand(th) + cs; 
         end
         
         function c = centroid(obj)
@@ -399,7 +399,6 @@ classdef Arizona < handle
     end
     
 end
-
 
 %% Helper functions
 
