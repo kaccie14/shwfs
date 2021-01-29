@@ -84,6 +84,33 @@ classdef Arizona < handle
             d = obj.lensSystem.lensDataReverse; % return reversed lens data
         end
         
+        function ps = pupilShiftDistance(obj, th)
+            % Linear shift in pupil position from eye-rotation angle input
+            % eye-rotation angle (th)
+            if th > 20
+               error("Only eye rotation less than 20 deg is supported")
+            end
+            
+            r = obj.centroid() - obj.entrancePupil().position;
+            ps = r * tand(th) + centroidShift(th);
+        end
+        
+        function ps = pupilShiftNear(obj, z, dpd)
+            % pd = distance (monocular) pupillary distance (mm); use
+            % pupilShiftDistance to obtain this value.
+            if z < 25
+               error("Object distance must be greater than 20 cm")
+            end
+            
+            % Pupil position shift is calculated from estimated eye
+            % rotation angle
+            r = obj.centroid() - obj.entrancePupil().position;
+            th = atand(dpd / (10 * z + r));       
+            cs = centroidShift(th);
+            th = th - atand(cs/(r + 10*z)); % estimated eye rotation 
+            ps = r * tand(th) + cs; 
+        end
+        
         function c = centroid(obj)
             [zc, c] = obj.centroidCornea;
             [zs, s] = obj.centroidSclera;           
@@ -373,8 +400,16 @@ classdef Arizona < handle
     
 end
 
-
 %% Helper functions
+
+function cs = centroidShift(th)
+    p = [0.0181, 0.1555];
+    if th < 5 % eye rotation (deg) threshold for translation
+        cs = 0;
+    else
+        cs = p(1) * th + p(2);
+    end
+end
 
 function n = indexLens(A)
     arguments
