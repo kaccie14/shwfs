@@ -96,10 +96,10 @@ classdef Arizona < handle
         end
         
         function ps = pupilShiftNear(obj, z, dpd)
-            % pd = distance (monocular) pupillary distance (mm); use
+            % dpd = distance (monocular) pupillary distance (mm); use
             % pupilShiftDistance to obtain this value.
             if z < 25
-               error("Object distance must be greater than 20 cm")
+               error("Object distance must be greater than 25 cm")
             end
             
             % Pupil position shift is calculated from estimated eye
