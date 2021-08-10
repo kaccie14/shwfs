@@ -111,6 +111,10 @@ classdef Arizona < handle
             ps = r * tand(th) + cs; 
         end
         
+        
+        
+        
+        
         function c = centroid(obj)
             [zc, c] = obj.centroidCornea;
             [zs, s] = obj.centroidSclera;           
