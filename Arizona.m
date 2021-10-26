@@ -110,11 +110,7 @@ classdef Arizona < handle
             th = th - atand(cs/(r + 10*z)); % estimated eye rotation 
             ps = r * tand(th) + cs; 
         end
-        
-        
-        
-        
-        
+         
         function c = centroid(obj)
             [zc, c] = obj.centroidCornea;
             [zs, s] = obj.centroidSclera;           
@@ -139,9 +135,18 @@ classdef Arizona < handle
             n = obj.data.Index(r);
             P = 1000 * n / H2F2; % dioptric Power
         end
-          
+        
+        function N = primaryNodalPoint(obj)
+            H = -obj.lensSystem.principalPlanes(2).primary;
+            P = obj.dioptricPower;
+            n = obj.vitreousIndex;
+            
+            % Primary nodal point (wrt vertex)
+            N = H + 1000.0 * (n - 1) / P;
+        end
+        
         function p = entrancePupil(obj)
-            % Locate the principal planes of crystalline lens.
+            % Locate the principal planes of cornea (surfaces 2 and 3)
             H = obj.lensSystem.principalPlanes(2,3);
             
             % Iris to pupil (lateral) magnification

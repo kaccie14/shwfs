@@ -5,7 +5,7 @@ classdef LensSystem < handle
     %   By default:
     %   - constructed optical system will have an object (OBJ) and an image
     %   (IMA) surface with the latter fully absorbant. 
-    %   - origin (z = 0 is defined at surface 2
+    %   - origin (z = 0) is defined at surface 2
     %
     %   Frame of reference originates from the vertex of the first surface,
     %   and light is assumed to travel from left to right. only paraxial
