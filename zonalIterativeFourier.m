@@ -25,14 +25,14 @@ rms(1) = sqrt(e'*e) / N;
 for idx = 1:n
     FWx = fftshift(fft2(Wx));
     FWy = fftshift(fft2(Wy));
-    FW = (-1i * h / (2 * pi)) * (u.*FWx + v.*FWy) ./ u2v2;
+    FW = (-1i * h / pi) * (u.*FWx + v.*FWy) ./ u2v2;
     o = floor(0.5 * size(FW)) + 1;          % origin
     FW(o(1), o(2)) = 0.0;                   % origin being 0 forces zero mean
     W = real(ifft2(ifftshift(FW)));
     
     % Compute gradient of estimated wavefront
-    FWx = (1i * 2 * pi / h) * u .* FW;
-    FWy = (1i * 2 * pi / h) * v .* FW;
+    FWx = (1i * pi / h) * u .* FW;
+    FWy = (1i * pi / h) * v .* FW;
     Wx = ifft2(ifftshift(FWx));
     Wy = ifft2(ifftshift(FWy));
     
