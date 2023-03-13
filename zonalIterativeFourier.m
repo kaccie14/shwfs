@@ -5,7 +5,7 @@ function [W, rms] = zonalIterativeFourier(Mx, My, A, h, n)
 %   Mx - measured x-slopes
 %   My - measured y-slopes
 %   A - aperture
-%   h - pixel spacing
+%   h - sampling spacing (i.e., subaperture pitch)
 
 % spatial frequency meshgrid
 [u, v] = freqspace(size(A), 'meshgrid');
